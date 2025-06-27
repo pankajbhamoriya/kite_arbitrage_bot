@@ -14,7 +14,7 @@ if __name__ == "__main__":
 
     for symbol in [NIFTY_SYMBOL, BANKNIFTY_SYMBOL]:
         breeze.subscribe_feeds(
-            exchange_code="NFO",
+            exchange_code=EXCHANGE_CODE,
             stock_code=symbol,
             expiry_date=EXPIRY_DATE,
             product_type="futures",
