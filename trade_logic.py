@@ -19,7 +19,7 @@ def get_prev_close(breeze, symbol):
         quote = breeze.get_quotes(
             stock_code=symbol,
             exchange_code=EXCHANGE_CODE,
-            expiry_date="2025-07-31",
+            expiry_date=EXPIRY_DATE ,
             product_type="futures",
             right="others",
             strike_price="0"
@@ -37,6 +37,7 @@ def place_order(breeze, action, symbol):
     try:
         ltp = ltp_data[symbol]
         # Placeholder for actual order placement
+        breeze.place_order(stock_code=symbol,exchange_code="NFO",product="futures", action= action,order_type="market", stoploss="0",quantity="75",validity="day",disclosed_quantity="0",expiry_date=EXPIRY_DATE,right="others",strike_price="0")
         log_order_to_text(action, symbol, ltp, TEXT_LOG_FILE)
     except Exception as e:
         print(f"[ERROR] Failed to place order for {symbol}: {e}")
