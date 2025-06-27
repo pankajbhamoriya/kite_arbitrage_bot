@@ -84,9 +84,9 @@ def profit_loss():
         nifty_ltp = ltp_data[NIFTY_STOCK]
         banknifty_ltp = ltp_data[BNF_STOCK]
         if nifty_action == "buy":
-            diff = (nifty_ltp - nifty_trade_price) * 75 + (bnf_trade_price - banknifty_ltp) * 35
+            diff = (nifty_ltp - nifty_trade_price) * NIFTY_ORDER_QTY + (bnf_trade_price - banknifty_ltp) * BNF_ORDER_QTY
         else:
-            diff = (nifty_trade_price - nifty_ltp) * 75 + (banknifty_ltp - bnf_trade_price) * 35
+            diff = (nifty_trade_price - nifty_ltp) * NIFTY_ORDER_QTY + (banknifty_ltp - bnf_trade_price) * BNF_ORDER_QTY
     print(f"Profit/Loss: ₹{diff:.2f}")
 
 
