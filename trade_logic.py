@@ -32,12 +32,12 @@ def get_prev_close(breeze, symbol):
         return None
 
 
-def place_order(breeze, action, symbol):
+def place_order(breeze, act, symbol,qty):
     print(f"[TRADE] Placing {action.upper()} order on {symbol}")
     try:
         ltp = ltp_data[symbol]
         # Placeholder for actual order placement
-        breeze.place_order(stock_code=symbol,exchange_code="NFO",product="futures", action= action,order_type="market", stoploss="0",quantity="75",validity="day",disclosed_quantity="0",expiry_date=EXPIRY_DATE,right="others",strike_price="0")
+        breeze.place_order(stock_code=symbol,exchange_code="NFO",product="futures", action= act,order_type="market", stoploss="0",quantity=qty,validity="day",disclosed_quantity="0",expiry_date=EXPIRY_DATE,right="others",strike_price="0")
         log_order_to_text(action, symbol, ltp, TEXT_LOG_FILE)
     except Exception as e:
         print(f"[ERROR] Failed to place order for {symbol}: {e}")
@@ -64,12 +64,12 @@ def check_and_trade(breeze):
     if diff > THRESHOLD and time.time() - last_trade_time > COOLDOWN_SECONDS:
         with trade_lock:
             if nifty_change > banknifty_change:
-                place_order(breeze, "sell", NIFTY_STOCK)
-                place_order(breeze, "buy", BNF_STOCK)
+                place_order(breeze, "sell", NIFTY_STOCK, NIFTY_ORDER_QTY)
+                place_order(breeze, "buy", BNF_STOCK,BNF_ORDER_QTY)
                 nifty_action = "sell"
             else:
-                place_order(breeze, "buy", NIFTY_STOCK)
-                place_order(breeze, "sell", BNF_STOCK)
+                place_order(breeze, "buy", NIFTY_STOCK,NIFTY_ORDER_QTY)
+                place_order(breeze, "sell", BNF_STOCK,BNF_ORDER_QTY)
                 nifty_action = "buy"
             nifty_trade_price = nifty_ltp
             bnf_trade_price = banknifty_ltp
