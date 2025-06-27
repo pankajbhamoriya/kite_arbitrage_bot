@@ -16,7 +16,7 @@ if __name__ == "__main__":
         breeze.subscribe_feeds(
             exchange_code="NFO",
             stock_code=symbol,
-            expiry_date="2025-07-31",
+            expiry_date=EXPIRY_DATE,
             product_type="futures",
             right="others",
             strike_price=0.0,
