@@ -1,3 +1,5 @@
+# ----- Backtest ------
+# change the value of backtest_date = "2025-06-10" , prev_close_date = "2025-06-09 for backtesting for a particular day.
 from breeze_connect import BreezeConnect
 import pandas as pd
 import time
