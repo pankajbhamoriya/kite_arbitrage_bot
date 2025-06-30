@@ -5,9 +5,10 @@ from breeze_connect import BreezeConnect
 import pandas as pd
 import time
 import threading
+from datetime import datetime, timedelta
 NIFTY_ORDER_QTY = 75
 BNF_ORDER_QTY = 35
-THRESHOLD = 0.5  # % change difference
+THRESHOLD = 0.7  # % change difference
 COOLDOWN_SECONDS = 0
 NIFTY_SYMBOL = "NIFTY"
 BANKNIFTY_SYMBOL = "CNXBAN"
@@ -20,9 +21,8 @@ trade_executed = False
 nifty_trade_price = 0
 bnf_trade_price = 0
 nifty_action = ""
-backtest_date = "2025-06-10"
-prev_close_date = "2025-06-09"
-expiry_dt = "2025-06-26"
+backtest_date = "2025-04-07"
+expiry_dt = "2025-04-24"
 trade_lock = threading.Lock()
 
 # Step 1: Initialize and authenticate
@@ -34,6 +34,32 @@ breeze = BreezeConnect(api_key=api_key)
 breeze.generate_session(api_secret=secret_key, session_token=session_token)
 
 
+def previous_close_date(backtest_date):
+    today = datetime.strptime(backtest_date, "%Y-%m-%d").date()
+    print(today)
+    # Fetch historical data for the last 10 days (or more to be safe) 2025-06-30
+    start_date = today - timedelta(days=10)
+    end_date = today - timedelta(days=1)  # yesterday or earlier
+
+    historical_data = breeze.get_historical_data(
+    interval="1day",
+    from_date=start_date.strftime("%Y-%m-%d"),
+    to_date=end_date.strftime("%Y-%m-%d"),
+    stock_code="NIFTY",
+    exchange_code="NSE",
+    product_type="cash"
+    )
+
+    # Extract the latest available trading date
+    if 'Success' in historical_data and historical_data['Success']:
+        trading_dates = [entry['datetime'][:10] for entry in historical_data['Success']]
+        previous_trading_date = trading_dates[-1]  # last trading day before today
+        print("Previous trading date:", previous_trading_date)
+        return previous_trading_date
+    else:
+        print("Failed to fetch historical data or no trading data available.")
+        return None
+    
 def check_and_trade(nifty_ltp,banknifty_ltp):
     global last_trade_time, trade_executed, nifty_action, nifty_trade_price, bnf_trade_price
     if trade_executed:
@@ -89,7 +115,8 @@ def fetch_futures(symbol_code):
     )
 
 def fetch_futures_prev(symbol_code):
-    global expiry_dt,prev_close_date
+    global expiry_dt,prev_close_date,backtest_date
+    prev_close_date = previous_close_date(backtest_date)
     response = breeze.get_historical_data_v2(
         interval="1minute",           # can also use "1second", "5minute", etc.
         from_date=f"{prev_close_date}T15:29:00.000Z",
