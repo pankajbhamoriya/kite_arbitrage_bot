@@ -15,7 +15,7 @@ BNF_ORDER_QTY = 35
 THRESHOLD = 0.1  # % change difference
 thershold_delta = 0.1
 COOLDOWN_SECONDS = 0
-NIFTY_SYMBOL = "CNXBAN"
+NIFTY_SYMBOL = "NIFTY"
 BANKNIFTY_SYMBOL = ""
 NIFTY_STOCK = "NIFTY 50" # Changed from "NIFTY 50"
 BNF_STOCK = "NIFTY BANK" # Changed from "NIFTY BANK"
@@ -28,18 +28,19 @@ bnf_trade_price = 0
 nifty_action = ""
 backtest_date = ""
 prev_close_date=""
-expiry_dt = "2025-05-29"
+expiry_dt = "2025-07-31"
 trade_lock = threading.Lock()
 max_pnl = 0
 last_pnl = 0
-max_profit = 5000
-max_loss = 3000
+max_profit = 3000
+trailing_stop_loss = 1000
+max_loss = 1000
 # Step 1: Initialize and authenticate
 api_key = "6Q2(s324f7=Y75@74171m9J66O6D0%88"
 secret_key = "61q2106591287LR3295153JE128%p7@6"
-session_token = "52080397"
-delta = 1000
-strike_diff = 100
+session_token = "52123706"
+delta = 500
+strike_diff = 50
 breeze = BreezeConnect(api_key=api_key)
 breeze.generate_session(api_secret=secret_key, session_token=session_token)
 
@@ -48,8 +49,8 @@ def atm_strike_price(backtest_date,symbol_code):
     # Fetch 1-day interval data
     response =   breeze.get_historical_data_v2(
         interval="5minute",           # can also use "1second", "5minute", etc.
-        from_date=f"{backtest_date}T09:25:00.000Z",
-        to_date=f"{backtest_date}T09:25:00.000Z",
+        from_date=f"{backtest_date}T09:30:00.000Z",
+        to_date=f"{backtest_date}T09:30:00.000Z",
         stock_code=symbol_code,
         exchange_code="NFO",
         product_type="futures",
@@ -68,7 +69,7 @@ def atm_strike_price(backtest_date,symbol_code):
 
     if spot_price:
         # ---------- ROUND TO NEAREST 50 FOR NIFTY ----------
-        atm_strike = round(spot_price / strike_diff) * strike_diff 
+        atm_strike = round(spot_price / strike_diff) * strike_diff
         #print(f"✅ ATM Strike for {symbol_code} at 09:30 on {backtest_date}: {atm_strike}")
         return atm_strike
     else:
@@ -80,8 +81,8 @@ def check_and_trade(backtest_date,symbol_code):
     global nifty_trade_price,bnf_trade_price,trade_executed,delta
     if trade_executed:
         return
-    strike_p_call = atm_strike_price(backtest_date,symbol_code) - delta   
-    strike_p_put  = atm_strike_price(backtest_date,symbol_code)  + delta   
+    strike_p_call = atm_strike_price(backtest_date,symbol_code) - delta
+    strike_p_put  = atm_strike_price(backtest_date,symbol_code)  + delta
     #print(f"Strike price : {strike_p}")
    #print(f"[TICK] Nifty: {nifty_change:.2f}%, BankNifty: {banknifty_change:.2f}%, Diff: {diff:.2f}%, Thershold : {THRESHOLD}")
     nifty_trade_price = fetch_options_0930(backtest_date,symbol_code,strike_p_call,"call")
@@ -89,7 +90,7 @@ def check_and_trade(backtest_date,symbol_code):
     bnf_trade_price = fetch_options_0930(backtest_date,symbol_code,strike_p_put,"put")
     print(f"BankNifty trade price : {bnf_trade_price}")
     trade_executed = True
-    
+
 
 def profit_loss(nifty_ltp,banknifty_ltp):
     global trade_executed, nifty_action, nifty_trade_price, bnf_trade_price
@@ -105,7 +106,7 @@ def fetch_options(backtest_date,symbol_code,strike_p,call_put):
     response = breeze.get_historical_data_v2(
         interval="5minute",           # can also use "1second", "5minute", etc.
         from_date=f"{backtest_date}T10:00:00.000Z",
-        to_date=f"{backtest_date}T15:00:00.000Z",
+        to_date=f"{backtest_date}T14:00:00.000Z",
         stock_code=symbol_code,
         exchange_code="NFO",
         product_type="options",
@@ -121,8 +122,8 @@ def fetch_options_0930(backtest_date,symbol_code,strike_p,call_put):
     #print("Back test date : " + backtest_date)
     response = breeze.get_historical_data_v2(
         interval="5minute",           # can also use "1second", "5minute", etc.
-        from_date=f"{backtest_date}T09:25:00.000Z",
-        to_date=f"{backtest_date}T09:30:00.000Z",
+        from_date=f"{backtest_date}T09:30:00.000Z",
+        to_date=f"{backtest_date}T09:35:00.000Z",
         stock_code=symbol_code,
         exchange_code="NFO",
         product_type="options",
@@ -143,7 +144,7 @@ def fetch_options_0930(backtest_date,symbol_code,strike_p,call_put):
 
 # Step 3: Fetch previous close data first
 def backtestdata_for_day(backtest_date):
-    global  trade_executed, nifty_action, nifty_trade_price, bnf_trade_price, THRESHOLD, max_pnl,last_pnl,delta
+    global  trade_executed, nifty_action, nifty_trade_price, bnf_trade_price, THRESHOLD, max_pnl,last_pnl,delta,max_loss,max_profit,trailing_stop_loss
 
     # Reset trade status for the new day
     trade_executed = False
@@ -151,8 +152,8 @@ def backtestdata_for_day(backtest_date):
     bnf_trade_price = 0
 
     check_and_trade(backtest_date,NIFTY_SYMBOL)
-    strike_p_call = atm_strike_price(backtest_date,NIFTY_SYMBOL) - delta   
-    strike_p_put  = atm_strike_price(backtest_date,NIFTY_SYMBOL)  + delta    
+    strike_p_call = atm_strike_price(backtest_date,NIFTY_SYMBOL) - delta
+    strike_p_put  = atm_strike_price(backtest_date,NIFTY_SYMBOL)  + delta
     # Step 4: Fetch for NIFTY and BANKNIFTY
     nifty_response = fetch_options(backtest_date,NIFTY_SYMBOL,strike_p_call,"call")
     banknifty_response = fetch_options(backtest_date,NIFTY_SYMBOL,strike_p_put,"put")
@@ -175,19 +176,24 @@ def backtestdata_for_day(backtest_date):
 
 
     data = []
+    print(str(max_profit) + " " + str(max_loss))
     for index, row in merged_df.iterrows():
         #check_and_trade(float(row['close_x']), float(row['close_y']))
         time.sleep(COOLDOWN_SECONDS) # Removed sleep for faster backtesting
         pnl = round(profit_loss(float(row['close_x']), float(row['close_y'])),2)
         data.append({"Profit":pnl})
+        if(pnl > trailing_stop_loss):
+            max_loss = max_loss - trailing_stop_loss
+
         if(pnl > max_profit ):
+            print("Limited Profit : " + str(pnl))
             break
-        if(pnl < -max_loss):
+        elif(pnl < 0 and abs(pnl) > max_loss):
+            print("Stoploss Triggered  : " + str(pnl))
             break
-          
-    
 
     pnls = pd.DataFrame(data)
+    #print(pnls)
     if not pnls.empty:
         print(f"{backtest_date} : Last Close:", pnls['Profit'].tail(1).values[0])
         # Max close value
@@ -200,8 +206,8 @@ def backtestdata_for_day(backtest_date):
 
 
 
-start_date = datetime(2025, 5, 2)
-end_date = datetime(2025, 5, 29)
+start_date = datetime(2025, 7, 1)
+end_date = datetime(2025, 7, 4)
 
 #backtestdata_for_day(backtest_date)
 # Loop through each day in the month
