@@ -6,11 +6,12 @@ from breeze_connect import BreezeConnect
 import pandas as pd
 import time
 import threading
-from datetime import datetime, timedelta
+from datetime import date,datetime, timedelta
 import requests
 import os
 import logging
 logging.disable(logging.CRITICAL)
+import calendar
 
 NIFTY_ORDER_QTY = 75
 BNF_ORDER_QTY = 35
@@ -30,17 +31,17 @@ bnf_trade_price = 0
 nifty_action = ""
 backtest_date = ""
 prev_close_date=""
-expiry_dt = "2025-07-31"
+
 trade_lock = threading.Lock()
 max_pnl = 0
 last_pnl = 0
-max_profit = 3000
+max_profit = 4000
 trailing_stop_loss = 1000
 max_loss = 1000
 # Step 1: Initialize and authenticate
 api_key = "6Q2(s324f7=Y75@74171m9J66O6D0%88"
 secret_key = "61q2106591287LR3295153JE128%p7@6"
-session_token = "52123706"
+session_token = "52153499"
 delta = 500
 strike_diff = 50
 breeze = BreezeConnect(api_key=api_key)
@@ -66,8 +67,8 @@ def atm_strike_price(backtest_date,symbol_code):
         spot_price = df['Success'].iloc[0]['close']
         #print(f"{symbol_code} Futures Open Price: {close_price}")
     else:
-        print("No data returned for open price.")
-        return None
+        #print("No data returned for open price.")
+        return True
 
     if spot_price:
         # ---------- ROUND TO NEAREST 50 FOR NIFTY ----------
@@ -78,21 +79,35 @@ def atm_strike_price(backtest_date,symbol_code):
         print("❌ 09:30 price not found.")
         return None
 
+def last_thursday(year, month):
+    # Get the last day of the month
+    last_day = calendar.monthrange(year, month)[1]
+    last_date = date(year, month, last_day)
+
+    # Step backwards until we find a Thursday (weekday 3)
+    while last_date.weekday() != 3:  # 0=Mon, 1=Tue, ..., 3=Thu
+        last_date -= timedelta(days=1)
+    
+    return last_date
+
 
 def check_and_trade(backtest_date,symbol_code):
     global nifty_trade_price,bnf_trade_price,trade_executed,delta
     if trade_executed:
-        return
+        return False
+    if atm_strike_price(backtest_date,symbol_code) == True:
+        #print(atm_strike_price(backtest_date,symbol_code))
+        return False
     strike_p_call = atm_strike_price(backtest_date,symbol_code) - delta
     strike_p_put  = atm_strike_price(backtest_date,symbol_code)  + delta
     #print(f"Strike price : {strike_p}")
    #print(f"[TICK] Nifty: {nifty_change:.2f}%, BankNifty: {banknifty_change:.2f}%, Diff: {diff:.2f}%, Thershold : {THRESHOLD}")
     nifty_trade_price = fetch_options_0930(backtest_date,symbol_code,strike_p_call,"call")
-    print(f"Nifty trade price : {nifty_trade_price}")
+    #print(f"Nifty trade price : {nifty_trade_price}")
     bnf_trade_price = fetch_options_0930(backtest_date,symbol_code,strike_p_put,"put")
-    print(f"BankNifty trade price : {bnf_trade_price}")
+    #print(f"BankNifty trade price : {bnf_trade_price}")
     trade_executed = True
-
+    return True
 
 def profit_loss(nifty_ltp,banknifty_ltp):
     global trade_executed, nifty_action, nifty_trade_price, bnf_trade_price
@@ -124,7 +139,7 @@ def fetch_options_0930(backtest_date,symbol_code,strike_p,call_put):
     #print("Back test date : " + backtest_date)
     response = breeze.get_historical_data_v2(
         interval="5minute",           # can also use "1second", "5minute", etc.
-        from_date=f"{backtest_date}T09:30:00.000Z",
+        from_date=f"{backtest_date}T09:35:00.000Z",
         to_date=f"{backtest_date}T09:35:00.000Z",
         stock_code=symbol_code,
         exchange_code="NFO",
@@ -153,7 +168,8 @@ def backtestdata_for_day(backtest_date):
     nifty_trade_price = 0
     bnf_trade_price = 0
 
-    check_and_trade(backtest_date,NIFTY_SYMBOL)
+    if not check_and_trade(backtest_date,NIFTY_SYMBOL):
+        return  
     strike_p_call = atm_strike_price(backtest_date,NIFTY_SYMBOL) - delta
     strike_p_put  = atm_strike_price(backtest_date,NIFTY_SYMBOL)  + delta
     # Step 4: Fetch for NIFTY and BANKNIFTY
@@ -178,49 +194,50 @@ def backtestdata_for_day(backtest_date):
 
 
     data = []
-    print(str(max_profit) + " " + str(max_loss))
+    #print(str(max_profit) + " " + str(max_loss))
     for index, row in merged_df.iterrows():
         #check_and_trade(float(row['close_x']), float(row['close_y']))
         time.sleep(COOLDOWN_SECONDS) # Removed sleep for faster backtesting
         pnl = round(profit_loss(float(row['close_x']), float(row['close_y'])),2)
         data.append({"Profit":pnl})
-        if(pnl > trailing_stop_loss):
-            max_loss = max_loss - trailing_stop_loss
+        #if(pnl > trailing_stop_loss):
+         #   max_loss = max_loss - trailing_stop_loss
 
         if(pnl > max_profit ):
-            print("Limited Profit : " + str(pnl))
+            #print("Limited Profit : " + str(pnl))
             break
         elif(pnl < 0 and abs(pnl) > max_loss):
-            print("Stoploss Triggered  : " + str(pnl))
+            #print("Stoploss Triggered  : " + str(pnl))
             break
 
     pnls = pd.DataFrame(data)
     #print(pnls)
     if not pnls.empty:
-        print(f"{backtest_date} : Last Close:", pnls['Profit'].tail(1).values[0])
+        #print(f"{backtest_date} : Last Close:", pnls['Profit'].tail(1).values[0])
         # Max close value
-        print(f"{backtest_date} : Max Close:", pnls['Profit'].max())
+        #print(f"{backtest_date} : Max Close:", pnls['Profit'].max())
         max_pnl = pnls['Profit'].max() + max_pnl
         # Last close value
         last_pnl = pnls['Profit'].tail(1).values[0] + last_pnl
     else:
         print(f"No PnL data generated for {backtest_date}")
 
+for mon in range(2, 2):
+    expiry_dt = last_thursday(2025,mon)
 
+    start_date = datetime(2025, mon, 1)
+    end_date = datetime(2025, mon, expiry_dt.day)
 
-start_date = datetime(2025, 7, 1)
-end_date = datetime(2025, 7, 4)
+    #backtestdata_for_day(backtest_date)
+    # Loop through each day in the month
+    current_date = end_date
+    while current_date >= start_date:
+        if current_date.weekday() < 5:
+          date_str = current_date.strftime("%Y-%m-%d")
+          backtest_date = date_str
+          #print(f"\n--- Backtesting for {date_str} ---")
+          backtestdata_for_day(date_str)
+        current_date -= timedelta(days=1)
 
-#backtestdata_for_day(backtest_date)
-# Loop through each day in the month
-current_date = end_date
-while current_date >= start_date:
-    if current_date.weekday() < 5:
-      date_str = current_date.strftime("%Y-%m-%d")
-      backtest_date = date_str
-      print(f"\n--- Backtesting for {date_str} ---")
-      backtestdata_for_day(date_str)
-    current_date -= timedelta(days=1)
-
-print("Final for month : Max : " + str(max_pnl))
-print("Final for month : last : " + str(last_pnl))
+    print("Final for month " + str(mon) + " : Max : " + str(max_pnl))
+    print("Final for month " + str(mon) + ": last : " + str(last_pnl))
