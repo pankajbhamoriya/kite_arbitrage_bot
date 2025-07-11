@@ -12,7 +12,7 @@ import os
 import logging
 logging.disable(logging.CRITICAL)
 import calendar
-YEAR = 2025
+
 NIFTY_ORDER_QTY = 75
 BNF_ORDER_QTY = 35
 THRESHOLD = 0.1  # % change difference
@@ -31,7 +31,7 @@ bnf_trade_price = 0
 nifty_action = ""
 backtest_date = ""
 prev_close_date=""
-
+YEAR = 2024 # ------ change for backtest
 trade_lock = threading.Lock()
 max_pnl = 0
 last_pnl = 0
@@ -41,7 +41,7 @@ max_loss = 1000
 # Step 1: Initialize and authenticate
 api_key = "6Q2(s324f7=Y75@74171m9J66O6D0%88"
 secret_key = "61q2106591287LR3295153JE128%p7@6"
-session_token = "52153499"
+session_token = "52184353"
 delta = 500
 strike_diff = 50
 breeze = BreezeConnect(api_key=api_key)
@@ -87,7 +87,7 @@ def last_thursday(year, month):
     # Step backwards until we find a Thursday (weekday 3)
     while last_date.weekday() != 3:  # 0=Mon, 1=Tue, ..., 3=Thu
         last_date -= timedelta(days=1)
-    
+    #print(last_date)
     return last_date
 
 
@@ -222,11 +222,11 @@ def backtestdata_for_day(backtest_date):
     else:
         print(f"No PnL data generated for {backtest_date}")
 
-for mon in range(2, 2):
+for mon in range(1, 12):
     expiry_dt = last_thursday(YEAR,mon)
 
     start_date = datetime(YEAR, mon, 1)
-    end_date = datetime(YEAR, mon, expiry_dt.day)
+    end_date = datetime(YEAR, mon, expiry_dt.day )
 
     #backtestdata_for_day(backtest_date)
     # Loop through each day in the month
