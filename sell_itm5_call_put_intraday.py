@@ -12,7 +12,7 @@ import os
 import logging
 logging.disable(logging.CRITICAL)
 import calendar
-
+YEAR = 2025
 NIFTY_ORDER_QTY = 75
 BNF_ORDER_QTY = 35
 THRESHOLD = 0.1  # % change difference
@@ -223,10 +223,10 @@ def backtestdata_for_day(backtest_date):
         print(f"No PnL data generated for {backtest_date}")
 
 for mon in range(2, 2):
-    expiry_dt = last_thursday(2025,mon)
+    expiry_dt = last_thursday(YEAR,mon)
 
-    start_date = datetime(2025, mon, 1)
-    end_date = datetime(2025, mon, expiry_dt.day)
+    start_date = datetime(YEAR, mon, 1)
+    end_date = datetime(YEAR, mon, expiry_dt.day)
 
     #backtestdata_for_day(backtest_date)
     # Loop through each day in the month
